@@ -2,7 +2,7 @@ import { Database as BunSQLite } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
-import type { Database, Job } from "./database.ts";
+import type { Database, Job, Video } from "./database.ts";
 
 export class SQLiteDatabase implements Database {
   private db: BunSQLite;
@@ -15,6 +15,14 @@ export class SQLiteDatabase implements Database {
 
   async init(): Promise<void> {
     this.db.run(`
+      CREATE TABLE IF NOT EXISTS videos (
+        id TEXT PRIMARY KEY,
+        filename TEXT NOT NULL,
+        size INTEGER NOT NULL,
+        createdAt TEXT NOT NULL
+      );
+    `);
+    this.db.run(`
       CREATE TABLE IF NOT EXISTS jobs (
         id TEXT PRIMARY KEY,
         videoId TEXT NOT NULL,
@@ -25,6 +33,37 @@ export class SQLiteDatabase implements Database {
         updatedAt TEXT NOT NULL
       );
     `);
+  }
+
+  async createVideo(id: string, filename: string, size: number): Promise<Video> {
+    const now = new Date().toISOString();
+    this.db
+      .query(
+        `INSERT INTO videos (id, filename, size, createdAt)
+         VALUES (?, ?, ?, ?)`
+      )
+      .run(id, filename, size, now);
+    return { id, filename, size, createdAt: now };
+  }
+
+  async getVideo(id: string): Promise<Video | null> {
+    return this.db.query("SELECT * FROM videos WHERE id = ?").get(id) as Video | null;
+  }
+
+  async listVideos(): Promise<Video[]> {
+    return this.db.query("SELECT * FROM videos ORDER BY createdAt DESC").all() as Video[];
+  }
+
+  async renameVideo(id: string, filename: string): Promise<Video | null> {
+    return this.db
+      .query("UPDATE videos SET filename = ? WHERE id = ? RETURNING *")
+      .get(filename, id) as Video | null;
+  }
+
+  async deleteVideo(id: string): Promise<boolean> {
+    this.db.query("DELETE FROM videos WHERE id = ?").run(id);
+    const row = this.db.query("SELECT changes() as changes").get() as { changes: number };
+    return row.changes > 0;
   }
 
   async createJob(videoId: string, query: string): Promise<Job> {
