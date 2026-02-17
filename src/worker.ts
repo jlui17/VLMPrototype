@@ -37,11 +37,18 @@ while (true) {
       continue;
     }
 
-    console.log(`Processing job ${job.id} (video=${job.videoId}, query="${job.query}")`);
+    console.log(`Processing job ${job.id} (video=${job.videoId}, model=${job.model}, query="${job.query}")`);
 
     try {
+      const provider = config.vlmRegistry.findProvider(job.model);
+      if (!provider) {
+        await failJob(job.id, `No provider available for model "${job.model}"`);
+        console.error(`Job ${job.id} failed: no provider for model "${job.model}"`);
+        continue;
+      }
+
       const video = await config.storage.fetch(job.videoId);
-      const response = await config.vlm.query(video, job.query);
+      const response = await provider.query(job.model, video, job.query);
       await completeJob(job.id, response.answer);
       console.log(`Job ${job.id} completed`);
     } catch (err) {

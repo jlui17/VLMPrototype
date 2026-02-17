@@ -1,6 +1,7 @@
 export interface Job {
   id: string;
   videoId: string;
+  model: string;
   query: string;
   status: "pending" | "processing" | "completed" | "failed";
   result: string | null;
@@ -22,7 +23,7 @@ export interface Database {
   listVideos(): Promise<Video[]>;
   renameVideo(id: string, filename: string): Promise<Video | null>;
   deleteVideo(id: string): Promise<boolean>;
-  createJob(videoId: string, query: string): Promise<Job>;
+  createJob(videoId: string, model: string, query: string): Promise<Job>;
   getJob(id: string): Promise<Job | null>;
   listJobs(): Promise<Job[]>;
   claimNextPendingJob(): Promise<Job | null>;

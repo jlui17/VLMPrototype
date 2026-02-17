@@ -3,5 +3,6 @@ export interface VLMResponse {
 }
 
 export interface VLMProvider {
-  query(video: Buffer, question: string): Promise<VLMResponse>;
+  canHandle(model: string): boolean;
+  query(model: string, video: Buffer, question: string): Promise<VLMResponse>;
 }

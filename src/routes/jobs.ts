@@ -4,13 +4,18 @@ import { config } from "../config.ts";
 const router = Router();
 
 router.post("/", async (req, res) => {
-  const { videoId, query } = req.body ?? {};
+  const { videoId, query, model = "gemini-3-flash-preview" } = req.body ?? {};
   if (!videoId || !query) {
     res.status(400).json({ error: "videoId and query are required" });
     return;
   }
 
-  const job = await config.database.createJob(videoId, query);
+  if (!config.vlmRegistry.canHandle(model)) {
+    res.status(422).json({ error: `Model "${model}" is not available` });
+    return;
+  }
+
+  const job = await config.database.createJob(videoId, model, query);
   res.status(201).json({ jobId: job.id });
 });
 
@@ -19,6 +24,7 @@ router.get("/", async (_req, res) => {
   res.json(jobs.map((job) => ({
     id: job.id,
     videoId: job.videoId,
+    model: job.model,
     status: job.status,
     createdAt: job.createdAt,
   })));
@@ -33,6 +39,7 @@ router.get("/:id", async (req, res) => {
 
   res.json({
     id: job.id,
+    model: job.model,
     status: job.status,
     result: job.result,
     createdAt: job.createdAt,

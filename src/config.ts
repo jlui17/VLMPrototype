@@ -1,22 +1,37 @@
 import { LocalFileStorage } from "./connectors/storage/local-file.ts";
 import { SQLiteDatabase } from "./connectors/database/sqlite.ts";
 import { PlaceholderVLM } from "./connectors/vlm/placeholder.ts";
+import { GeminiVLM } from "./connectors/vlm/gemini.ts";
+import { VLMRegistry } from "./connectors/vlm/registry.ts";
 import type { BlobStorage } from "./connectors/storage/storage.ts";
 import type { Database } from "./connectors/database/database.ts";
 import type { VLMProvider } from "./connectors/vlm/vlm.ts";
+
+function createVLMRegistry(): VLMRegistry {
+  const providers: VLMProvider[] = [];
+
+  const apiKey = process.env["GEMINI_API_KEY"];
+  if (apiKey) {
+    providers.push(new GeminiVLM(apiKey));
+  }
+
+  providers.push(new PlaceholderVLM());
+
+  return new VLMRegistry(providers);
+}
 
 export interface Config {
   port: number;
   apiBaseUrl: string;
   storage: BlobStorage;
   database: Database;
-  vlm: VLMProvider;
+  vlmRegistry: VLMRegistry;
   workerPollIntervalMs: number;
 }
 
 const storage = new LocalFileStorage(process.env["STORAGE_DIR"] ?? "./data/videos");
 const database = new SQLiteDatabase(process.env["DB_PATH"] ?? "./data/vlm.db");
-const vlm = new PlaceholderVLM();
+const vlmRegistry = createVLMRegistry();
 
 const port = Number(process.env["PORT"] ?? 3000);
 
@@ -25,7 +40,7 @@ export const config: Config = {
   apiBaseUrl: process.env["API_BASE_URL"] ?? `http://localhost:${port}`,
   storage,
   database,
-  vlm,
+  vlmRegistry,
   workerPollIntervalMs: Number(process.env["WORKER_POLL_MS"] ?? 2000),
 };
 

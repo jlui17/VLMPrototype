@@ -26,6 +26,7 @@ export class SQLiteDatabase implements Database {
       CREATE TABLE IF NOT EXISTS jobs (
         id TEXT PRIMARY KEY,
         videoId TEXT NOT NULL,
+        model TEXT NOT NULL DEFAULT '',
         query TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending',
         result TEXT,
@@ -33,6 +34,11 @@ export class SQLiteDatabase implements Database {
         updatedAt TEXT NOT NULL
       );
     `);
+
+    const columns = this.db.query("PRAGMA table_info(jobs)").all() as { name: string }[];
+    if (!columns.some((c) => c.name === "model")) {
+      this.db.run("ALTER TABLE jobs ADD COLUMN model TEXT NOT NULL DEFAULT ''");
+    }
   }
 
   async createVideo(id: string, filename: string, size: number): Promise<Video> {
@@ -66,16 +72,16 @@ export class SQLiteDatabase implements Database {
     return row.changes > 0;
   }
 
-  async createJob(videoId: string, query: string): Promise<Job> {
+  async createJob(videoId: string, model: string, query: string): Promise<Job> {
     const id = randomUUID();
     const now = new Date().toISOString();
     this.db
       .query(
-        `INSERT INTO jobs (id, videoId, query, status, result, createdAt, updatedAt)
-         VALUES (?, ?, ?, 'pending', NULL, ?, ?)`
+        `INSERT INTO jobs (id, videoId, model, query, status, result, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, 'pending', NULL, ?, ?)`
       )
-      .run(id, videoId, query, now, now);
-    return { id, videoId, query, status: "pending", result: null, createdAt: now, updatedAt: now };
+      .run(id, videoId, model, query, now, now);
+    return { id, videoId, model, query, status: "pending", result: null, createdAt: now, updatedAt: now };
   }
 
   async getJob(id: string): Promise<Job | null> {

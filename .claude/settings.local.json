@@ -5,7 +5,16 @@
       "mcp__excalidraw__create_view",
       "mcp__excalidraw__read_checkpoint",
       "mcp__excalidraw__export_to_excalidraw",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(bun build:*)",
+      "Bash(bunx tsc:*)",
+      "Bash(git -C /Users/juslui/src/personal/VLMPrototype diff)",
+      "Bash(git -C /Users/juslui/src/personal/VLMPrototype log --oneline -5)",
+      "Bash(git -C /Users/juslui/src/personal/VLMPrototype diff .env.example)",
+      "Bash(git -C /Users/juslui/src/personal/VLMPrototype diff --cached --stat)",
+      "Bash(git -C /Users/juslui/src/personal/VLMPrototype diff --cached src/config.ts)",
+      "Bash(git -C /Users/juslui/src/personal/VLMPrototype show HEAD:src/config.ts)",
+      "Bash(git -C /Users/juslui/src/personal/VLMPrototype status)"
     ]
   }
 }
