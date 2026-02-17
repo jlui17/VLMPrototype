@@ -13,9 +13,18 @@ router.post("/", upload.single("file"), async (req, res) => {
     return;
   }
 
+  const storageType = (req.body?.storageType as string) || config.defaultStorageType;
+  const backend = config.storageRegistry.get(storageType);
+  if (!backend) {
+    res.status(422).json({
+      error: `Unknown storage type "${storageType}". Available: ${config.storageRegistry.types().join(", ")}`,
+    });
+    return;
+  }
+
   const id = randomUUID();
-  await config.storage.store(id, file.buffer);
-  await config.database.createVideo(id, file.originalname, file.size);
+  const storageRef = await backend.store(id, file.buffer);
+  await config.database.createVideo(id, file.originalname, file.size, storageType, storageRef);
   res.status(201).json({ id });
 });
 
@@ -48,12 +57,23 @@ router.patch("/:id", async (req, res) => {
 });
 
 router.delete("/:id", async (req, res) => {
+  const video = await config.database.getVideo(req.params.id);
+  if (!video) {
+    res.status(404).json({ error: "Video not found" });
+    return;
+  }
+
   const deleted = await config.database.deleteVideo(req.params.id);
   if (!deleted) {
     res.status(404).json({ error: "Video not found" });
     return;
   }
-  await config.storage.delete(req.params.id);
+
+  const backend = config.storageRegistry.get(video.storageType);
+  if (backend) {
+    await backend.delete(video.storageRef);
+  }
+
   res.status(204).end();
 });
 

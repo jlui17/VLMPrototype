@@ -1,5 +1,7 @@
-import { GoogleGenAI, createPartFromBase64, FileState } from "@google/genai";
+import { GoogleGenAI, createPartFromBase64 } from "@google/genai";
+import { InvalidVideoError } from "./vlm.ts";
 import type { VLMProvider, VLMResponse } from "./vlm.ts";
+import type { VideoData } from "../storage/video-data.ts";
 
 const TWENTY_MB = 20 * 1024 * 1024;
 
@@ -16,39 +18,46 @@ export class GeminiVLM implements VLMProvider {
     return model.startsWith("gemini-");
   }
 
-  async query(model: string, video: Buffer, question: string): Promise<VLMResponse> {
-    const videoPart = video.byteLength <= this.inlineThreshold
-      ? this.inlinePart(video)
-      : await this.uploadPart(video);
+  validateVideo(video: { storageType: string; size: number }): InvalidVideoError | null {
+    if (video.storageType !== "gemini-file" && video.size > this.inlineThreshold) {
+      return new InvalidVideoError(
+        "exceeds-inline-threshold",
+        `Video is ${video.size} bytes which exceeds the ${this.inlineThreshold}-byte inline limit. Re-upload with storageType "gemini-file".`,
+      );
+    }
+    return null;
+  }
+
+  async query(model: string, video: VideoData, question: string): Promise<VLMResponse> {
+    const part = this.toPart(video);
 
     const response = await this.ai.models.generateContent({
       model,
       contents: [
-        { role: "user", parts: [videoPart, { text: question }] },
+        { role: "user", parts: [part, { text: question }] },
       ],
     });
 
     return { answer: response.text ?? "" };
   }
 
-  private inlinePart(video: Buffer) {
-    return createPartFromBase64(video.toString("base64"), "video/mp4");
-  }
-
-  private async uploadPart(video: Buffer) {
-    const blob = new Blob([video], { type: "video/mp4" });
-    const upload = await this.ai.files.upload({ file: blob });
-
-    let file = upload;
-    while (file.state === FileState.PROCESSING) {
-      await new Promise((r) => setTimeout(r, 2000));
-      file = await this.ai.files.get({ name: file.name! });
+  private toPart(video: VideoData) {
+    switch (video.kind) {
+      case "gemini-file":
+        return { fileData: { fileUri: video.fileUri, mimeType: video.mimeType } };
+      case "buffer":
+        if (video.data.byteLength > this.inlineThreshold) {
+          throw new InvalidVideoError(
+            "exceeds-inline-threshold",
+            `Buffer is ${video.data.byteLength} bytes which exceeds the ${this.inlineThreshold}-byte inline limit. Use gemini-file storage for large videos.`,
+          );
+        }
+        return createPartFromBase64(video.data.toString("base64"), "video/mp4");
+      default:
+        throw new InvalidVideoError(
+          "unknown-video-kind",
+          `Unknown video kind: ${(video as { kind: string }).kind}`,
+        );
     }
-
-    if (file.state === FileState.FAILED) {
-      throw new Error(`Gemini file upload failed: ${file.name}`);
-    }
-
-    return { fileData: { fileUri: file.uri!, mimeType: "video/mp4" } };
   }
 }

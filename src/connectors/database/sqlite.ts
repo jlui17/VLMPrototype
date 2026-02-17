@@ -19,6 +19,8 @@ export class SQLiteDatabase implements Database {
         id TEXT PRIMARY KEY,
         filename TEXT NOT NULL,
         size INTEGER NOT NULL,
+        storageType TEXT NOT NULL DEFAULT 'local',
+        storageRef TEXT NOT NULL DEFAULT '',
         createdAt TEXT NOT NULL
       );
     `);
@@ -35,21 +37,31 @@ export class SQLiteDatabase implements Database {
       );
     `);
 
-    const columns = this.db.query("PRAGMA table_info(jobs)").all() as { name: string }[];
-    if (!columns.some((c) => c.name === "model")) {
+    const jobCols = this.db.query("PRAGMA table_info(jobs)").all() as { name: string }[];
+    if (!jobCols.some((c) => c.name === "model")) {
       this.db.run("ALTER TABLE jobs ADD COLUMN model TEXT NOT NULL DEFAULT ''");
     }
+
+    const videoCols = this.db.query("PRAGMA table_info(videos)").all() as { name: string }[];
+    if (!videoCols.some((c) => c.name === "storageType")) {
+      this.db.run("ALTER TABLE videos ADD COLUMN storageType TEXT NOT NULL DEFAULT 'local'");
+    }
+    if (!videoCols.some((c) => c.name === "storageRef")) {
+      this.db.run("ALTER TABLE videos ADD COLUMN storageRef TEXT NOT NULL DEFAULT ''");
+    }
+
+    this.db.run("UPDATE videos SET storageRef = id WHERE storageRef = ''");
   }
 
-  async createVideo(id: string, filename: string, size: number): Promise<Video> {
+  async createVideo(id: string, filename: string, size: number, storageType: string, storageRef: string): Promise<Video> {
     const now = new Date().toISOString();
     this.db
       .query(
-        `INSERT INTO videos (id, filename, size, createdAt)
-         VALUES (?, ?, ?, ?)`
+        `INSERT INTO videos (id, filename, size, storageType, storageRef, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?)`
       )
-      .run(id, filename, size, now);
-    return { id, filename, size, createdAt: now };
+      .run(id, filename, size, storageType, storageRef, now);
+    return { id, filename, size, storageType, storageRef, createdAt: now };
   }
 
   async getVideo(id: string): Promise<Video | null> {

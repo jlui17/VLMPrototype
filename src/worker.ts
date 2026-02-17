@@ -1,7 +1,7 @@
 import { config } from "./config.ts";
-import type { Job } from "./connectors/database/database.ts";
+import type { Job, Video } from "./connectors/database/database.ts";
 
-await config.storage.init();
+await config.storageRegistry.initAll();
 
 const { apiBaseUrl, workerPollIntervalMs } = config;
 
@@ -11,6 +11,12 @@ async function claimJob(): Promise<Job | null> {
   const res = await fetch(`${apiBaseUrl}/jobs/claim`, { method: "POST" });
   if (res.status === 204) return null;
   return res.json() as Promise<Job>;
+}
+
+async function getVideo(id: string): Promise<Video | null> {
+  const res = await fetch(`${apiBaseUrl}/videos/${id}`);
+  if (res.status === 404) return null;
+  return res.json() as Promise<Video>;
 }
 
 async function completeJob(id: string, result: string): Promise<void> {
@@ -47,8 +53,22 @@ while (true) {
         continue;
       }
 
-      const video = await config.storage.fetch(job.videoId);
-      const response = await provider.query(job.model, video, job.query);
+      const video = await getVideo(job.videoId);
+      if (!video) {
+        await failJob(job.id, `Video "${job.videoId}" not found`);
+        console.error(`Job ${job.id} failed: video "${job.videoId}" not found`);
+        continue;
+      }
+
+      const backend = config.storageRegistry.get(video.storageType);
+      if (!backend) {
+        await failJob(job.id, `No storage backend for type "${video.storageType}"`);
+        console.error(`Job ${job.id} failed: no storage backend for type "${video.storageType}"`);
+        continue;
+      }
+
+      const videoData = await backend.fetch(video.storageRef);
+      const response = await provider.query(job.model, videoData, job.query);
       await completeJob(job.id, response.answer);
       console.log(`Job ${job.id} completed`);
     } catch (err) {

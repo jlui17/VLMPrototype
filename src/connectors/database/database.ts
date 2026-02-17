@@ -13,12 +13,14 @@ export interface Video {
   id: string;
   filename: string;
   size: number;
+  storageType: string;
+  storageRef: string;
   createdAt: string;
 }
 
 export interface Database {
   init(): Promise<void>;
-  createVideo(id: string, filename: string, size: number): Promise<Video>;
+  createVideo(id: string, filename: string, size: number, storageType: string, storageRef: string): Promise<Video>;
   getVideo(id: string): Promise<Video | null>;
   listVideos(): Promise<Video[]>;
   renameVideo(id: string, filename: string): Promise<Video | null>;

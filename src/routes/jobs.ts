@@ -10,8 +10,21 @@ router.post("/", async (req, res) => {
     return;
   }
 
-  if (!config.vlmRegistry.canHandle(model)) {
+  const provider = config.vlmRegistry.findProvider(model);
+  if (!provider) {
     res.status(422).json({ error: `Model "${model}" is not available` });
+    return;
+  }
+
+  const video = await config.database.getVideo(videoId);
+  if (!video) {
+    res.status(404).json({ error: "Video not found" });
+    return;
+  }
+
+  const validationError = provider.validateVideo({ storageType: video.storageType, size: video.size });
+  if (validationError) {
+    res.status(422).json({ error: validationError.message });
     return;
   }
 
