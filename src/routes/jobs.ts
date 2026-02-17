@@ -39,4 +39,33 @@ router.get("/:id", async (req, res) => {
   });
 });
 
+router.post("/claim", async (_req, res) => {
+  const job = await config.database.claimNextPendingJob();
+  if (!job) {
+    res.status(204).end();
+    return;
+  }
+  res.json(job);
+});
+
+router.patch("/:id/complete", async (req, res) => {
+  const { result } = req.body ?? {};
+  if (typeof result !== "string") {
+    res.status(400).json({ error: "result is required" });
+    return;
+  }
+  await config.database.completeJob(req.params.id, result);
+  res.json({ ok: true });
+});
+
+router.patch("/:id/fail", async (req, res) => {
+  const { error } = req.body ?? {};
+  if (typeof error !== "string") {
+    res.status(400).json({ error: "error is required" });
+    return;
+  }
+  await config.database.failJob(req.params.id, error);
+  res.json({ ok: true });
+});
+
 export default router;

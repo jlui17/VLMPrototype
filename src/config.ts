@@ -7,6 +7,7 @@ import type { VLMProvider } from "./connectors/vlm/vlm.ts";
 
 export interface Config {
   port: number;
+  apiBaseUrl: string;
   storage: BlobStorage;
   database: Database;
   vlm: VLMProvider;
@@ -17,8 +18,11 @@ const storage = new LocalFileStorage(process.env["STORAGE_DIR"] ?? "./data/video
 const database = new SQLiteDatabase(process.env["DB_PATH"] ?? "./data/vlm.db");
 const vlm = new PlaceholderVLM();
 
+const port = Number(process.env["PORT"] ?? 3000);
+
 export const config: Config = {
-  port: Number(process.env["PORT"] ?? 3000),
+  port,
+  apiBaseUrl: process.env["API_BASE_URL"] ?? `http://localhost:${port}`,
   storage,
   database,
   vlm,
