@@ -4,50 +4,60 @@ A backend API that lets users query videos using a VLM (Video Language Model) wi
 
 ## Architecture
 
-[View / Edit on Excalidraw](https://excalidraw.com/#json=00XAXWYlC_WVhZ_hP_rR_,mUooXloAqeqxJxnwoJlrQQ)
+```mermaid
+graph TB
+    Client["<b>Client</b>"]
+    API["<b>API Server</b><br/>(Bun + Express)"]
 
-```
-              ┌──────────────────┐
-              │    API Server    │
-              │  (Bun + Express) │
-              └──┬───────────┬───┘
-                 │           │
-     store video │           │ create job /
-                 │           │ read status
-                 ▼           ▼
-        ┌─────────────┐  ┌──────────────────┐
-        │ Blob Storage│  │     Database     │
-        │             │  │ (Jobs + Results) │
-        └─────────────┘  └──────────────────┘
-                 ▲           ▲
-     fetch video │           │ poll jobs /
-                 │           │ write results
-              ┌──┴───────────┴──┐
-              │     Worker      │
-              └────────┬────────┘
-                       │
-                       │ video + query
-                       ▼
-              ┌──────────────────┐
-              │  VLM Provider    │
-              └──────────────────┘
+    subgraph storage["<b>Blob Storage</b>"]
+        LF["local-file"]
+        GF["gemini-file"]
+    end
+
+    DB["<b>SQLite</b><br/>(Jobs + Results)"]
+
+    subgraph vlm["<b>VLM Provider</b>"]
+        Gemini["Gemini"]
+    end
+
+    Worker["<b>Worker</b><br/>(polls API via HTTP)"]
+
+    Client <-->|"HTTP"| API
+    API -->|"store video"| storage
+    API -->|"create job /<br/>read status"| DB
+    Worker -->|"poll jobs /<br/>complete"| API
+    Worker -->|"fetch video"| storage
+    Worker -->|"video + query"| vlm
+
+    style Client fill:#333,stroke:#888,color:#e5e5e5
+    style API fill:#1e3a5f,stroke:#4a9eed,color:#e5e5e5
+    style DB fill:#1a4d2e,stroke:#22c55e,color:#e5e5e5
+    style storage fill:#0d3318,stroke:#22c55e,color:#22c55e
+    style LF fill:#1a4d4d,stroke:#06b6d4,color:#e5e5e5
+    style GF fill:#5c3d1a,stroke:#f59e0b,color:#e5e5e5
+    style vlm fill:#3d2a0d,stroke:#f59e0b,color:#f59e0b
+    style Gemini fill:#5c3d1a,stroke:#f59e0b,color:#e5e5e5
+    style Worker fill:#2d1b69,stroke:#8b5cf6,color:#e5e5e5
 ```
 
 ### Components
 
 | Component | Role |
 |---|---|
-| **API Server** (Bun + Express) | Receives requests, stores videos, creates jobs, returns results |
-| **Database** (Jobs + Results) | Stores job state (`pending` → `processing` → `completed`) and query results. Also acts as the job queue — the Worker polls for pending jobs |
-| **Blob Storage** | Stores uploaded video files |
-| **Worker** | Polls the database for pending jobs, fetches videos, calls the VLM, and writes results back |
-| **VLM Provider** | External, model-agnostic video understanding API |
+| **API Server** (Bun + Express) | Receives requests, stores videos, creates jobs, validates videos against the VLM provider, returns results |
+| **Database** (SQLite) | Stores video metadata (including storage type and ref) and job state (`pending` → `processing` → `completed`). Also acts as the job queue |
+| **Storage Registry** | Routes video storage per-type. Each video tracks its own `storageType` and `storageRef` |
+| local-file | Stores video bytes on the local filesystem |
+| gemini-file | Uploads video to Gemini's File API for large files that exceed the inline threshold |
+| **Worker** | Polls the API for pending jobs, fetches video data from the Storage Registry, calls the VLM, and writes results back via the API |
+| **VLM Registry** | Routes queries to the right provider based on the model string in the request |
+| Gemini | Concrete VLM provider. Validates that videos fit inline or use gemini-file storage |
 
 ### Processing Model
 
-1. Client uploads a video → API Server stores it in Blob Storage
-2. Client submits a query → API Server creates a job record (`pending`) in the Database and returns a job ID
-3. Worker polls the Database for pending jobs, claims one, fetches the video from Blob Storage, sends it with the query to the VLM Provider, and writes the result back to the Database
+1. Client uploads a video with an optional `storageType` → API Server stores it via the matching Storage Registry backend and records the metadata in the Database
+2. Client submits a query with a model name → API Server finds the VLM provider, calls `validateVideo` to check the video is compatible (e.g. size vs. inline threshold), and creates a `pending` job record. Returns 422 if validation fails
+3. Worker claims a pending job via the API, looks up the video metadata, fetches the video data from the Storage Registry, sends it with the query to the VLM provider, and writes the result back via the API
 4. Client polls the API Server with the job ID → API Server reads the result from the Database and returns it
 
 ## Getting Started
@@ -70,4 +80,6 @@ bun run src/worker.ts
 
 - **Runtime**: Bun
 - **Framework**: Express
-- **VLM**: Model-agnostic (pluggable provider)
+- **Database**: SQLite (via `bun:sqlite`)
+- **VLM**: Gemini (pluggable via VLM Registry)
+- **Storage**: Local filesystem, Gemini File API (pluggable via Storage Registry)
