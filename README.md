@@ -1,6 +1,6 @@
 # VLM Video Q&A API
 
-A backend API that lets users query videos using a VLM (Video Language Model) with natural language Q&A. Submit a video, ask questions about it, and get answers powered by a model-agnostic VLM provider.
+A backend API that lets users query videos using a VLM (Vision Language Model) with natural language Q&A. Submit a video, ask questions about it, and get answers powered by a model-agnostic VLM provider.
 
 ## Architecture
 

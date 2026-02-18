@@ -3,6 +3,7 @@ import { GeminiFileStorage } from "./connectors/storage/gemini-file.ts";
 import { StorageRegistry } from "./connectors/storage/registry.ts";
 import { SQLiteDatabase } from "./connectors/database/sqlite.ts";
 import { GeminiVLM } from "./connectors/vlm/gemini.ts";
+import { OpenRouterVLM } from "./connectors/vlm/openrouter.ts";
 import { VLMRegistry } from "./connectors/vlm/registry.ts";
 import type { BlobStorage } from "./connectors/storage/storage.ts";
 import type { Database } from "./connectors/database/database.ts";
@@ -14,6 +15,11 @@ function createVLMRegistry(): VLMRegistry {
   const apiKey = process.env["GEMINI_API_KEY"];
   if (apiKey) {
     providers.push(new GeminiVLM(apiKey));
+  }
+
+  const openRouterKey = process.env["OPENROUTER_API_KEY"];
+  if (openRouterKey) {
+    providers.push(new OpenRouterVLM(openRouterKey));
   }
 
   return new VLMRegistry(providers);
