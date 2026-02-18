@@ -18,6 +18,7 @@ graph TB
 
     subgraph vlm["<b>VLM Provider</b>"]
         Gemini["Gemini"]
+        OR["OpenRouter"]
     end
 
     Worker["<b>Worker</b><br/>(polls API via HTTP)"]
@@ -37,6 +38,7 @@ graph TB
     style GF fill:#5c3d1a,stroke:#f59e0b,color:#e5e5e5
     style vlm fill:#3d2a0d,stroke:#f59e0b,color:#f59e0b
     style Gemini fill:#5c3d1a,stroke:#f59e0b,color:#e5e5e5
+    style OR fill:#5c3d1a,stroke:#f59e0b,color:#e5e5e5
     style Worker fill:#2d1b69,stroke:#8b5cf6,color:#e5e5e5
 ```
 
@@ -51,7 +53,8 @@ graph TB
 | gemini-file | Uploads video to Gemini's File API for large files that exceed the inline threshold |
 | **Worker** | Polls the API for pending jobs, fetches video data from the Storage Registry, calls the VLM, and writes results back via the API |
 | **VLM Registry** | Routes queries to the right provider based on the model string in the request |
-| Gemini | Concrete VLM provider. Validates that videos fit inline or use gemini-file storage |
+| Gemini | VLM provider for `gemini-*` models. Validates that videos fit inline or use gemini-file storage |
+| OpenRouter | VLM provider for `provider/model` style IDs (e.g. `google/gemini-2.5-flash`). Accepts any locally-stored video; rejects gemini-file URIs |
 
 ### Processing Model
 
@@ -81,5 +84,5 @@ bun run src/worker.ts
 - **Runtime**: Bun
 - **Framework**: Express
 - **Database**: SQLite (via `bun:sqlite`)
-- **VLM**: Gemini (pluggable via VLM Registry)
+- **VLM**: Gemini, OpenRouter (pluggable via VLM Registry)
 - **Storage**: Local filesystem, Gemini File API (pluggable via Storage Registry)
