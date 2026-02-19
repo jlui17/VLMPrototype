@@ -8,11 +8,6 @@ const router = Router();
 
 router.post("/", upload.single("file"), async (req, res) => {
   const file = req.file;
-  if (!file) {
-    res.status(400).json({ error: "No file uploaded" });
-    return;
-  }
-
   const storageType = (req.body?.storageType as string) || config.defaultStorageType;
   const backend = config.storageRegistry.get(storageType);
   if (!backend) {
@@ -22,10 +17,32 @@ router.post("/", upload.single("file"), async (req, res) => {
     return;
   }
 
+  let filename: string;
+  let size: number;
+
+  if (backend.storageType === "s3") {
+    filename = req.body?.filename as string;
+    size = Number(req.body?.size);
+    if (!filename || !Number.isFinite(size) || size <= 0) {
+      res.status(400).json({ error: "S3 storage requires filename and size in the request body" });
+      return;
+    }
+  } else {
+    if (!file) {
+      res.status(400).json({ error: "No file uploaded" });
+      return;
+    }
+    filename = file.originalname;
+    size = file.size;
+  }
+
   const id = randomUUID();
-  const storageRef = await backend.store(id, file.buffer);
-  await config.database.createVideo(id, file.originalname, file.size, storageType, storageRef);
-  res.status(201).json({ id });
+  const result = await backend.store(id, file?.buffer ?? Buffer.alloc(0));
+  await config.database.createVideo(id, filename, size, storageType, result.ref);
+
+  const response: Record<string, string> = { id };
+  if (result.uploadUrl) response.uploadUrl = result.uploadUrl;
+  res.status(201).json(response);
 });
 
 router.get("/", async (_req, res) => {

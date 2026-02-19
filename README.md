@@ -12,6 +12,7 @@ graph TB
     subgraph storage["<b>Blob Storage</b>"]
         LF["local-file"]
         GF["gemini-file"]
+        S3["s3"]
     end
 
     DB["<b>SQLite</b><br/>(Jobs + Results)"]
@@ -24,6 +25,7 @@ graph TB
     Worker["<b>Worker</b><br/>(polls API via HTTP)"]
 
     Client <-->|"HTTP"| API
+    Client -.->|"PUT via<br/>pre-signed URL"| S3
     API -->|"store video"| storage
     API -->|"create job /<br/>read status"| DB
     Worker -->|"poll jobs /<br/>complete"| API
@@ -36,6 +38,7 @@ graph TB
     style storage fill:#0d3318,stroke:#22c55e,color:#22c55e
     style LF fill:#1a4d4d,stroke:#06b6d4,color:#e5e5e5
     style GF fill:#5c3d1a,stroke:#f59e0b,color:#e5e5e5
+    style S3 fill:#1a3d5c,stroke:#4a9eed,color:#e5e5e5
     style vlm fill:#3d2a0d,stroke:#f59e0b,color:#f59e0b
     style Gemini fill:#5c3d1a,stroke:#f59e0b,color:#e5e5e5
     style OR fill:#5c3d1a,stroke:#f59e0b,color:#e5e5e5
@@ -51,6 +54,7 @@ graph TB
 | **Storage Registry** | Routes video storage per-type. Each video tracks its own `storageType` and `storageRef` |
 | local-file | Stores video bytes on the local filesystem |
 | gemini-file | Uploads video to Gemini's File API for large files that exceed the inline threshold |
+| s3 | Stores video in S3 via pre-signed URLs — client uploads directly to S3, bypassing the API server |
 | **Worker** | Polls the API for pending jobs, fetches video data from the Storage Registry, calls the VLM, and writes results back via the API |
 | **VLM Registry** | Routes queries to the right provider based on the model string in the request |
 | Gemini | VLM provider for `gemini-*` models. Validates that videos fit inline or use gemini-file storage |
@@ -58,7 +62,7 @@ graph TB
 
 ### Processing Model
 
-1. Client uploads a video with an optional `storageType` → API Server stores it via the matching Storage Registry backend and records the metadata in the Database
+1. Client uploads a video with an optional `storageType` → API Server stores it via the matching Storage Registry backend and records the metadata in the Database. For S3, the server returns a pre-signed URL and the client uploads the file directly to S3 (dashed line in diagram)
 2. Client submits a query with a model name → API Server finds the VLM provider, calls `validateVideo` to check the video is compatible (e.g. size vs. inline threshold), and creates a `pending` job record. Returns 422 if validation fails
 3. Worker claims a pending job via the API, looks up the video metadata, fetches the video data from the Storage Registry, sends it with the query to the VLM provider, and writes the result back via the API
 4. Client polls the API Server with the job ID → API Server reads the result from the Database and returns it
@@ -85,4 +89,4 @@ bun run src/worker.ts
 - **Framework**: Express
 - **Database**: SQLite (via `bun:sqlite`)
 - **VLM**: Gemini, OpenRouter (pluggable via VLM Registry)
-- **Storage**: Local filesystem, Gemini File API (pluggable via Storage Registry)
+- **Storage**: Local filesystem, Gemini File API, S3 (pluggable via Storage Registry)

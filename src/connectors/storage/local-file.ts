@@ -1,6 +1,6 @@
 import { mkdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
-import type { BlobStorage } from "./storage.ts";
+import type { BlobStorage, StoreResult } from "./storage.ts";
 import type { VideoData } from "./video-data.ts";
 
 export class LocalFileStorage implements BlobStorage {
@@ -15,9 +15,9 @@ export class LocalFileStorage implements BlobStorage {
     await mkdir(this.dir, { recursive: true });
   }
 
-  async store(id: string, data: Buffer): Promise<string> {
+  async store(id: string, data: Buffer): Promise<StoreResult> {
     await Bun.write(join(this.dir, id), data);
-    return id;
+    return { ref: id };
   }
 
   async fetch(ref: string): Promise<VideoData> {

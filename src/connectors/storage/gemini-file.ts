@@ -1,5 +1,5 @@
 import { GoogleGenAI, FileState } from "@google/genai";
-import type { BlobStorage } from "./storage.ts";
+import type { BlobStorage, StoreResult } from "./storage.ts";
 import type { VideoData } from "./video-data.ts";
 
 export class GeminiFileStorage implements BlobStorage {
@@ -12,7 +12,7 @@ export class GeminiFileStorage implements BlobStorage {
 
   async init(): Promise<void> {}
 
-  async store(id: string, data: Buffer): Promise<string> {
+  async store(id: string, data: Buffer): Promise<StoreResult> {
     const blob = new Blob([data], { type: "video/mp4" });
     let file = await this.ai.files.upload({
       file: blob,
@@ -28,7 +28,7 @@ export class GeminiFileStorage implements BlobStorage {
       throw new Error(`Gemini file upload failed for ${id}: ${file.name}`);
     }
 
-    return file.name!;
+    return { ref: file.name! };
   }
 
   async fetch(ref: string): Promise<VideoData> {

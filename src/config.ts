@@ -1,5 +1,6 @@
 import { LocalFileStorage } from "./connectors/storage/local-file.ts";
 import { GeminiFileStorage } from "./connectors/storage/gemini-file.ts";
+import { S3FileStorage } from "./connectors/storage/s3-file.ts";
 import { StorageRegistry } from "./connectors/storage/registry.ts";
 import { SQLiteDatabase } from "./connectors/database/sqlite.ts";
 import { GeminiVLM } from "./connectors/vlm/gemini.ts";
@@ -33,6 +34,14 @@ function createStorageRegistry(): StorageRegistry {
   const apiKey = process.env["GEMINI_API_KEY"];
   if (apiKey) {
     backends.push(new GeminiFileStorage(apiKey));
+  }
+
+  const s3Bucket = process.env["S3_BUCKET"];
+  if (s3Bucket) {
+    backends.push(new S3FileStorage({
+      bucket: s3Bucket,
+      region: process.env["S3_REGION"],
+    }));
   }
 
   return new StorageRegistry(backends);
