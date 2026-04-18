@@ -75,14 +75,14 @@ graph TB
 
 **Pluggable storage** — Same idea for storage. Local filesystem for dev, Gemini File API for large files, or S3 for production — all via the same interface.
 
-**Worker queue pattern** — Designed around an interview constraint where "VLM boxes can only handle one request at a time." Even though that's not a real limitation with modern APIs, the pattern works well for: retry logic, horizontal scaling (add more workers), and clean separation between API and processing.
+**Worker queue pattern** — Variable video lengths mean variable processing times. Rather than blocking API requests, workers process jobs asynchronously. This also gives you retry logic, horizontal scaling (add more workers), and clean separation between API and processing.
 
 ## Constraints
 
 - **Variable video length** — Processing time depends on video duration. Async prevents timeouts.
 - **Multiple VLM providers** — Different models have different strengths, pricing, and limits. Registry routes to the right one.
 - **Storage flexibility** — Small videos stay local; large ones go to Gemini File API or S3.
-- **Worker pattern** — Originally designed for "one request at a time" limitation (interview scenario). Kept because it handles failures gracefully and lets you scale workers independently from the API.
+- **Worker pattern** — Handles variable processing times without blocking API requests. Also gives clean failure handling and lets you scale workers independently from the API.
 - **Job claim concurrency** — The `POST /jobs/claim` endpoint must handle multiple workers atomically to prevent race conditions and duplicate work. SQLite transactions ensure only one worker gets each job.
 
 ## API
