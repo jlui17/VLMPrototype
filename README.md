@@ -109,7 +109,7 @@ graph TB
 
 **Agentic Tooling** — Let the VLM use tools (calculators, search, etc.) to answer questions
 
-**Load Balancing** — Smart routing across a cluster of VLM boxes based on queue depth and latency
+**Load Balancing** — Fairness between customers. If Customer A submits 1000 jobs and Customer B submits 2, B shouldn't have to wait for all of A's jobs to complete. Implement round-robin job scheduling by customer to prevent queue starvation.
 
 ## Getting Started
 
